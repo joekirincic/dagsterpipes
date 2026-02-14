@@ -13,3 +13,5 @@ RoxygenNote: 7.3.3
 Imports: R6, jsonlite
 Suggests: testthat (>= 3.0.0)
 Config/testthat/edition: 3
+URL: https://github.com/joekirincic/dagsterpipes
+BugReports: https://github.com/joekirincic/dagsterpipes/issues
