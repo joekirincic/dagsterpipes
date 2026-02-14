@@ -1,0 +1,15 @@
+Package: dagsterpipes
+Title: Dagster Pipes Protocol for R
+Version: 0.1.0
+Authors@R: person("Joseph", "Kirincic", email = "jdkirincic@gmail.com", role = c("aut", "cre"))
+Description: Implements the Dagster Pipes protocol, enabling R scripts to
+    communicate with the Dagster orchestrator. R scripts can receive execution
+    context and report asset materializations, check results, and log messages
+    back to Dagster.
+License: MIT + file LICENSE
+Encoding: UTF-8
+Roxygen: list(markdown = TRUE)
+RoxygenNote: 7.3.3
+Imports: R6, jsonlite
+Suggests: testthat (>= 3.0.0)
+Config/testthat/edition: 3
