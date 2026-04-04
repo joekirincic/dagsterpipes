@@ -24,6 +24,7 @@ test_that("PipesContext sends 'opened' on init", {
   parsed <- jsonlite::fromJSON(lines[[1]], simplifyVector = FALSE)
   expect_equal(parsed$method, "opened")
   expect_equal(parsed$`__dagster_pipes_version`, "0.1")
+  expect_equal(parsed$params, list(extras = list()))
 })
 
 test_that("active bindings return correct values", {
@@ -120,6 +121,115 @@ test_that("report_custom_message writes correct message", {
   parsed <- jsonlite::fromJSON(lines[[2]], simplifyVector = FALSE)
   expect_equal(parsed$method, "report_custom_message")
   expect_equal(parsed$params$payload$key, "value")
+})
+
+test_that("report_asset_materialization errors on duplicate asset key", {
+  res <- make_test_context()
+  res$ctx$report_asset_materialization(metadata = list())
+  expect_error(
+    res$ctx$report_asset_materialization(metadata = list()),
+    "already been materialized"
+  )
+})
+
+test_that("report methods error on asset_key not in asset_keys", {
+  res <- make_test_context()
+  expect_error(
+    res$ctx$report_asset_materialization(asset_key = "not_a_real_asset"),
+    "not one of the valid asset keys"
+  )
+  expect_error(
+    res$ctx$report_asset_check(
+      "c", passed = TRUE, asset_key = "not_a_real_asset", severity = "ERROR"
+    ),
+    "not one of the valid asset keys"
+  )
+})
+
+test_that("report_asset_check validates severity", {
+  res <- make_test_context()
+  expect_error(
+    res$ctx$report_asset_check("c", passed = TRUE, severity = "WARNING"),
+    "Invalid severity"
+  )
+  expect_error(
+    res$ctx$report_asset_check("c", passed = TRUE, severity = "FOO"),
+    "Invalid severity"
+  )
+  # Both WARN and ERROR accepted
+  expect_silent(res$ctx$report_asset_check("c1", passed = TRUE, severity = "WARN"))
+  expect_silent(res$ctx$report_asset_check("c2", passed = TRUE, severity = "ERROR"))
+})
+
+test_that("close with exception reports exception params", {
+  res <- make_test_context()
+  err <- simpleError("boom")
+  res$ctx$close(exception = err)
+
+  lines <- readLines(res$path)
+  closed_line <- lines[[length(lines)]]
+  parsed <- jsonlite::fromJSON(closed_line, simplifyVector = FALSE)
+  expect_equal(parsed$method, "closed")
+  expect_equal(parsed$params$exception$message, "boom")
+  expect_equal(parsed$params$exception$name, "simpleError")
+  expect_true(is.list(parsed$params$exception$stack))
+  expect_true(length(parsed$params$exception$stack) >= 1)
+  expect_null(parsed$params$exception$cause)
+  expect_null(parsed$params$exception$context)
+})
+
+test_that("close without exception sends empty params", {
+  res <- make_test_context()
+  res$ctx$close()
+
+  lines <- readLines(res$path)
+  closed_line <- lines[[length(lines)]]
+  parsed <- jsonlite::fromJSON(closed_line, simplifyVector = FALSE)
+  expect_equal(parsed$method, "closed")
+  expect_equal(parsed$params, list())
+})
+
+test_that("log_external_stream writes correct message", {
+  res <- make_test_context()
+  res$ctx$log_external_stream("stdout", "hello")
+
+  lines <- readLines(res$path)
+  parsed <- jsonlite::fromJSON(lines[[2]], simplifyVector = FALSE)
+  expect_equal(parsed$method, "log_external_stream")
+  expect_equal(parsed$params$stream, "stdout")
+  expect_equal(parsed$params$text, "hello")
+  expect_equal(parsed$params$extras, list())
+})
+
+test_that("report_asset_materialization auto-wraps raw metadata values", {
+  res <- make_test_context()
+  res$ctx$report_asset_materialization(
+    metadata = list(count = 42L, path = "/tmp/out.csv")
+  )
+
+  lines <- readLines(res$path)
+  parsed <- jsonlite::fromJSON(lines[[2]], simplifyVector = FALSE)
+  expect_equal(parsed$params$metadata$count,
+               list(raw_value = 42L, type = "__infer__"))
+  expect_equal(parsed$params$metadata$path,
+               list(raw_value = "/tmp/out.csv", type = "__infer__"))
+})
+
+test_that("report_asset_materialization preserves explicit pipes_metadata_value", {
+  res <- make_test_context()
+  res$ctx$report_asset_materialization(
+    metadata = list(
+      count = 42L,
+      url = pipes_metadata_value("http://x", "url")
+    )
+  )
+
+  lines <- readLines(res$path)
+  parsed <- jsonlite::fromJSON(lines[[2]], simplifyVector = FALSE)
+  expect_equal(parsed$params$metadata$count,
+               list(raw_value = 42L, type = "__infer__"))
+  expect_equal(parsed$params$metadata$url$raw_value, "http://x")
+  expect_equal(parsed$params$metadata$url$type, "url")
 })
 
 test_that("close sends closed message only once", {

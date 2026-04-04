@@ -1,0 +1,22 @@
+url: https://joekirincic.github.io/dagsterpipes/
+
+template:
+  bootstrap: 5
+
+reference:
+  - title: Opening a session
+    contents:
+      - open_dagster_pipes
+  - title: Context classes
+    contents:
+      - PipesContext
+      - NullPipesContext
+  - title: Metadata
+    contents:
+      - pipes_metadata_value
+
+articles:
+  - title: Getting started
+    navbar: ~
+    contents:
+      - getting-started

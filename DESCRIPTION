@@ -11,7 +11,8 @@ Encoding: UTF-8
 Roxygen: list(markdown = TRUE)
 RoxygenNote: 7.3.3
 Imports: R6, jsonlite
-Suggests: testthat (>= 3.0.0)
+Suggests: testthat (>= 3.0.0), knitr, rmarkdown
+VignetteBuilder: knitr
 Config/testthat/edition: 3
-URL: https://github.com/joekirincic/dagsterpipes
+URL: https://github.com/joekirincic/dagsterpipes, https://joekirincic.github.io/dagsterpipes/
 BugReports: https://github.com/joekirincic/dagsterpipes/issues

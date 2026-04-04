@@ -6,6 +6,22 @@
 #' [NullPipesContext] that logs to the console and silently ignores reports.
 #'
 #' @return A [PipesContext] or [NullPipesContext] object.
+#' @examples
+#' \dontrun{
+#' ctx <- open_dagster_pipes()
+#'
+#' threshold <- ctx$get_extra("threshold")
+#' ctx$log(sprintf("Using threshold = %s", threshold), level = "INFO")
+#'
+#' # ... do work ...
+#'
+#' ctx$report_asset_materialization(
+#'   metadata = list(
+#'     row_count = pipes_metadata_value(1000L, "int")
+#'   )
+#' )
+#' ctx$close()
+#' }
 #' @export
 open_dagster_pipes <- function() {
   context_env <- Sys.getenv("DAGSTER_PIPES_CONTEXT", unset = "")
@@ -31,6 +47,11 @@ open_dagster_pipes <- function() {
 #' A lightweight stand-in for [PipesContext] used when running outside Dagster.
 #' Log calls go to [message()]; report calls are silently ignored.
 #'
+#' @examples
+#' ctx <- NullPipesContext$new()
+#' ctx$log("running standalone", level = "INFO")
+#' ctx$report_asset_materialization(metadata = list())
+#' ctx$close()
 #' @export
 NullPipesContext <- R6::R6Class(
   "NullPipesContext",
@@ -52,6 +73,14 @@ NullPipesContext <- R6::R6Class(
     #' @param level The log level.
     log = function(message, level = "INFO") {
       base::message(sprintf("[%s] %s", level, message))
+    },
+
+    #' @description No-op external stream log.
+    #' @param stream Ignored.
+    #' @param text Ignored.
+    #' @param extras Ignored.
+    log_external_stream = function(stream, text, extras = NULL) {
+      invisible(NULL)
     },
 
     #' @description No-op materialization report.
@@ -81,7 +110,8 @@ NullPipesContext <- R6::R6Class(
     },
 
     #' @description No-op close.
-    close = function() {
+    #' @param exception Ignored (accepted for interface parity with [PipesContext]).
+    close = function(exception = NULL) {
       invisible(NULL)
     }
   ),

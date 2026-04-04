@@ -3,3 +3,12 @@
 ^LICENSE\.md$
 ^CLAUDE\.md$
 ^IMPLEMENTATION-PLAN\.md$
+^READINESS-REPORT\.md$
+^\.github$
+^doc$
+^Meta$
+^CODE_OF_CONDUCT\.md$
+^CONTRIBUTING\.md$
+^_pkgdown\.yml$
+^docs$
+^pkgdown$

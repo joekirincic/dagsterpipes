@@ -8,6 +8,12 @@
 #'   `"dagster_run"`, `"asset"`, `"null"`, `"table"`, `"table_schema"`,
 #'   `"table_column_lineage"`, `"timestamp"`, or `"__infer__"` (default).
 #' @return A list with `raw_value` and `type` elements.
+#' @examples
+#' pipes_metadata_value(1000L, "int")
+#' pipes_metadata_value("/data/output.csv", "path")
+#' pipes_metadata_value(0.97, "float")
+#' # Let Dagster infer the type from the raw value:
+#' pipes_metadata_value("hello world")
 #' @export
 pipes_metadata_value <- function(raw_value, type = "__infer__") {
   list(raw_value = raw_value, type = type)

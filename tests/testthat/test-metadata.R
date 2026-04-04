@@ -12,8 +12,23 @@ test_that("pipes_metadata_value defaults to __infer__", {
 })
 
 test_that("pipes_metadata_value handles various types", {
-  expect_equal(pipes_metadata_value(3.14, "float")$type, "float")
-  expect_equal(pipes_metadata_value(TRUE, "bool")$type, "bool")
-  expect_equal(pipes_metadata_value("/data/out.csv", "path")$type, "path")
-  expect_equal(pipes_metadata_value(NULL, "null")$type, "null")
+  url_mv <- pipes_metadata_value("http://example.com", "url")
+  expect_equal(url_mv$raw_value, "http://example.com")
+  expect_equal(url_mv$type, "url")
+
+  float_mv <- pipes_metadata_value(3.14, "float")
+  expect_equal(float_mv$raw_value, 3.14)
+  expect_equal(float_mv$type, "float")
+
+  json_mv <- pipes_metadata_value(list(a = 1, b = 2), "json")
+  expect_equal(json_mv$raw_value, list(a = 1, b = 2))
+  expect_equal(json_mv$type, "json")
+
+  bool_mv <- pipes_metadata_value(TRUE, "bool")
+  expect_equal(bool_mv$raw_value, TRUE)
+  expect_equal(bool_mv$type, "bool")
+
+  path_mv <- pipes_metadata_value("/data/out.csv", "path")
+  expect_equal(path_mv$raw_value, "/data/out.csv")
+  expect_equal(path_mv$type, "path")
 })
