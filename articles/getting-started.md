@@ -70,7 +70,7 @@ Pictorially:
              v
                                                  Rscript my_script.R
                                                        |
-                                                       | open_dagster_pipes()
+                                                       | with_dagster_pipes()
                                                        v
                                                reads <context file>
                                                        |
@@ -87,7 +87,7 @@ Pictorially:
 
 You don’t have to deal with any of the encoding, decoding, or file I/O
 yourself:
-[`open_dagster_pipes()`](https://joekirincic.github.io/dagsterpipes/reference/open_dagster_pipes.md)
+[`with_dagster_pipes()`](https://joekirincic.github.io/dagsterpipes/reference/with_dagster_pipes.md)
 and the `PipesContext` methods handle it for you.
 
 ## Writing your first R Pipes script

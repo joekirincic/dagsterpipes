@@ -145,7 +145,7 @@ process writes is a single line shaped like:</p>
          v
                                              Rscript my_script.R
                                                    |
-                                                   | open_dagster_pipes()
+                                                   | with_dagster_pipes()
                                                    v
                                            reads &lt;context file&gt;
                                                    |
@@ -160,7 +160,7 @@ process writes is a single line shaped like:</p>
          |
     AssetMaterialization / logs / checks</code></pre>
 <p>You don’t have to deal with any of the encoding, decoding, or file
-I/O yourself: <code><a href="../reference/open_dagster_pipes.html">open_dagster_pipes()</a></code> and the
+I/O yourself: <code><a href="../reference/with_dagster_pipes.html">with_dagster_pipes()</a></code> and the
 <code>PipesContext</code> methods handle it for you.</p>
 </div>
 <div class="section level2">
