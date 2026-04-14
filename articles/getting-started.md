@@ -10,12 +10,12 @@ part of a pipeline, while still collecting structured information —
 asset materializations, asset checks, logs, metadata — back from those
 processes.
 
-[dagsterpipes](https://github.com/joekirincic/dagsterpipes) is the
-R-side implementation of that protocol. It lets you write ordinary R
-scripts that Dagster can launch as subprocesses, receive execution
-context from Dagster (asset keys, partition info, user-supplied
-“extras”), and report results back in a way that Dagster understands
-natively.
+[dagsterpipes](https://github.com/joekirincic/dagsterpipes) implements
+the Dagster Pipes Protocol for the R language. It lets you write
+ordinary R scripts that Dagster can launch as subprocesses, receive
+execution context from Dagster (asset keys, partition info,
+user-supplied “extras”), and report results back in a way that Dagster
+understands natively.
 
 At a high level, the workflow is:
 
@@ -23,13 +23,15 @@ At a high level, the workflow is:
     command like `Rscript my_script.R`.
 2.  Dagster launches the R subprocess, injecting two environment
     variables (`DAGSTER_PIPES_CONTEXT` and `DAGSTER_PIPES_MESSAGES`)
-    that point at two temp files — one the R script reads from, one it
+    that point at two temp files, one the R script reads from and one it
     writes to.
 3.  The R script calls
-    [`open_dagster_pipes()`](https://joekirincic.github.io/dagsterpipes/reference/open_dagster_pipes.md),
-    which reads the context file and returns a `PipesContext` object.
-4.  The R script does its work, logs, reports a materialization, then
-    calls `ctx$close()`.
+    [`with_dagster_pipes()`](https://joekirincic.github.io/dagsterpipes/reference/with_dagster_pipes.md),
+    which reads the context file, runs the user-supplied function with a
+    `PipesContext`, and closes the session automatically (forwarding any
+    error to Dagster).
+4.  Inside the function, the R script does its work, logs, and reports a
+    materialization.
 5.  Dagster tails the messages file and turns each line of JSON into the
     corresponding Dagster event (AssetMaterialization, AssetCheckResult,
     log entry, etc.).
@@ -37,7 +39,7 @@ At a high level, the workflow is:
 Why use it? If your team has R-based models, scoring pipelines, or
 reporting jobs that you want to schedule and monitor alongside Python
 assets — without porting the R code to Python or wrapping it in an
-opaque shell step — Pipes is the right tool.
+opaque shell step — Pipes is the tool for you.
 
 ## The protocol at a glance
 
@@ -84,55 +86,56 @@ Pictorially:
         AssetMaterialization / logs / checks
 
 You don’t have to deal with any of the encoding, decoding, or file I/O
-yourself —
+yourself:
 [`open_dagster_pipes()`](https://joekirincic.github.io/dagsterpipes/reference/open_dagster_pipes.md)
-and the `PipesContext` methods handle it.
+and the `PipesContext` methods handle it for you.
 
 ## Writing your first R Pipes script
 
-Here is a minimal script. Save this as `my_script.R`:
+Let’s consider a simple example. Save this as `my_script.R` in the root
+of your Dagster project:
 
 ``` r
 library(dagsterpipes)
 
-ctx <- open_dagster_pipes()
+with_dagster_pipes(function(ctx) {
+  # Read inputs supplied by the Python asset via `extras=...`
+  threshold   <- ctx$get_extra("threshold")
+  output_path <- ctx$get_extra("output_path")
 
-# Read inputs supplied by the Python asset via `extras=...`
-threshold   <- ctx$get_extra("threshold")
-output_path <- ctx$get_extra("output_path")
-
-ctx$log(
-  sprintf("Starting run with threshold = %s", threshold),
-  level = "INFO"
-)
-
-# --- do real work here ---
-df <- data.frame(x = runif(1000), y = runif(1000))
-df <- df[df$x > threshold, ]
-write.csv(df, output_path, row.names = FALSE)
-
-# Report the materialization with typed metadata
-ctx$report_asset_materialization(
-  metadata = list(
-    row_count   = pipes_metadata_value(nrow(df), "int"),
-    output_path = pipes_metadata_value(output_path, "path"),
-    threshold   = pipes_metadata_value(threshold, "float")
+  ctx$log(
+    sprintf("Starting run with threshold = %s", threshold),
+    level = "INFO"
   )
-)
 
-ctx$log("Done", level = "INFO")
-ctx$close()
+  # --- do real work here ---
+  df <- data.frame(x = runif(1000), y = runif(1000))
+  df <- df[df$x > threshold, ]
+  write.csv(df, output_path, row.names = FALSE)
+
+  # Report the materialization with typed metadata
+  ctx$report_asset_materialization(
+    metadata = list(
+      row_count   = pipes_metadata_value(nrow(df), "int"),
+      output_path = pipes_metadata_value(output_path, "path"),
+      threshold   = pipes_metadata_value(threshold, "float")
+    )
+  )
+
+  ctx$log("Done", level = "INFO")
+})
 ```
 
 A few things worth noting:
 
-- [`open_dagster_pipes()`](https://joekirincic.github.io/dagsterpipes/reference/open_dagster_pipes.md)
-  automatically sends the `opened` message, so you don’t need to send it
-  yourself.
+- [`with_dagster_pipes()`](https://joekirincic.github.io/dagsterpipes/reference/with_dagster_pipes.md)
+  opens the session, runs your function, and closes it for you —
+  including forwarding any error to Dagster (see [Handling
+  errors](#handling-errors) below).
+- The `opened` message is sent automatically when the session starts;
+  the `closed` message is sent when your function returns (or throws).
 - `ctx$log()` accepts levels `"DEBUG"`, `"INFO"`, `"WARNING"`,
   `"ERROR"`, `"CRITICAL"`. These are mapped to Dagster’s log levels.
-- `ctx$close()` sends the terminating `closed` message. Always call it —
-  if you don’t, Dagster may consider the step incomplete.
 
 ## The Python side
 
@@ -169,7 +172,7 @@ The `extras` dict is what shows up on the R side via
 
 ## Running it
 
-Assuming your Python code lives in `defs.py` and `my_script.R` is on the
+Assuming your Python code lives in `defs.py` and `my_script.R` is on a
 path Dagster can see, start Dagster locally:
 
 ``` bash
@@ -189,8 +192,11 @@ any `ctx$log()` messages in the log viewer.
 
 ## Reporting asset checks
 
-If you want Dagster to treat a quality check as a first-class result,
-use `report_asset_check()`:
+Dagster has [asset
+checks](https://docs.dagster.io/guides/test/asset-checks) for assessing
+the quality of your assets. If you want to run asset checks using R,
+[dagsterpipes](https://github.com/joekirincic/dagsterpipes) has you
+covered. Just use `report_asset_check()`:
 
 ``` r
 ctx$report_asset_check(
@@ -211,7 +217,7 @@ the `check_specs=` argument on the asset, and Dagster will match up the
 
 Sometimes you need to return a value from the R subprocess that doesn’t
 fit into a materialization or a check — a model object summary, a row of
-results to thread into a downstream Python asset, or any other arbitrary
+results to pass to a downstream Dagster asset, or any other arbitrary
 structured payload. `ctx$report_custom_message()` sends a free-form
 JSON-serializable payload back to Dagster:
 
@@ -260,9 +266,26 @@ materialization itself, use the `metadata` argument on
 
 If your R code throws, you want Dagster to know about it — otherwise the
 subprocess exits non-zero but Dagster just sees “the process failed”
-with no structured error. Wrap your work in
-[`tryCatch()`](https://rdrr.io/r/base/conditions.html) and forward the
-exception to `ctx$close()`:
+with no structured error.
+
+[`with_dagster_pipes()`](https://joekirincic.github.io/dagsterpipes/reference/with_dagster_pipes.md)
+handles this automatically. If the function you pass throws an error,
+the exception is forwarded to Dagster via the `closed` message
+(including the error message, class, and formatted stack), and then the
+error is re-raised so the R process still exits non-zero:
+
+``` r
+with_dagster_pipes(function(ctx) {
+  threshold <- ctx$get_extra("threshold")
+  # ... do work that may fail ...
+  ctx$report_asset_materialization(metadata = list())
+})
+# If the function errors, Dagster sees the structured exception automatically.
+```
+
+If you need more control over the session lifecycle, you can use
+[`open_dagster_pipes()`](https://joekirincic.github.io/dagsterpipes/reference/open_dagster_pipes.md)
+directly and manage the error handling yourself:
 
 ``` r
 ctx <- open_dagster_pipes()
@@ -273,15 +296,10 @@ tryCatch({
   ctx$report_asset_materialization(metadata = list())
   ctx$close()
 }, error = function(e) {
-  # Attach the exception to the `closed` message so Dagster sees it.
   ctx$close(exception = e)
   stop(e)
 })
 ```
-
-`ctx$close(exception = e)` serializes the message, class, and formatted
-stack of `e` into the `closed` Pipes message. Dagster then surfaces it
-as the step failure reason.
 
 ## Metadata types
 
@@ -404,20 +422,20 @@ This means the same script works both inside Dagster and from a plain
 ``` r
 library(dagsterpipes)
 
-ctx <- open_dagster_pipes()
+with_dagster_pipes(function(ctx) {
+  ctx$log("running standalone", level = "INFO")
+  ctx$report_asset_materialization(
+    metadata = list(row_count = pipes_metadata_value(42L, "int"))
+  )
+})
 #> Not running under Dagster Pipes. Returning no-op context.
-ctx$log("running standalone", level = "INFO")
 #> [INFO] running standalone
-ctx$report_asset_materialization(
-  metadata = list(row_count = pipes_metadata_value(42L, "int"))
-)
-ctx$close()
 ```
 
 The log line shows up in your console, the materialization is ignored,
-and you can iterate on the script without any Dagster machinery at all.
-Once you’re happy with it, hand the same file to `PipesSubprocessClient`
-and it will “light up” with full orchestration.
+and you can iterate on the script without Dagster at all. Once you’re
+happy with it, hand the same file to `PipesSubprocessClient` and it will
+“light up” with full orchestration.
 
 ## Further reading
 

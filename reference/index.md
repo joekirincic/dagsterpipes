@@ -4,6 +4,8 @@
 
 - [`open_dagster_pipes()`](https://joekirincic.github.io/dagsterpipes/reference/open_dagster_pipes.md)
   : Open a Dagster Pipes session
+- [`with_dagster_pipes()`](https://joekirincic.github.io/dagsterpipes/reference/with_dagster_pipes.md)
+  : Run code within a Dagster Pipes session
 
 ## Context classes
 
