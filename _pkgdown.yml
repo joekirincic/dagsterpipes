@@ -7,6 +7,7 @@ reference:
   - title: Opening a session
     contents:
       - open_dagster_pipes
+      - with_dagster_pipes
   - title: Context classes
     contents:
       - PipesContext
