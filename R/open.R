@@ -1,3 +1,43 @@
+#' Run code within a Dagster Pipes session
+#'
+#' Opens a Dagster Pipes session, passes the context to a user-supplied
+#' function, and guarantees the session is closed afterwards. If the function
+#' raises an error, the exception is forwarded to Dagster before re-raising.
+#'
+#' @param code A function that takes a single argument (the [PipesContext] or
+#'   [NullPipesContext]) and performs the pipeline work.
+#' @return The return value of `code`, invisibly.
+#' @examples
+#' \dontrun{
+#' with_dagster_pipes(function(ctx) {
+#'   threshold <- ctx$get_extra("threshold")
+#'   ctx$log(sprintf("Using threshold = %s", threshold))
+#'
+#'   # ... do work ...
+#'
+#'   ctx$report_asset_materialization(
+#'     metadata = list(
+#'       row_count = pipes_metadata_value(1000L, "int")
+#'     )
+#'   )
+#' })
+#' }
+#' @export
+with_dagster_pipes <- function(code) {
+  ctx <- open_dagster_pipes()
+  tryCatch(
+    {
+      result <- code(ctx)
+      ctx$close()
+      invisible(result)
+    },
+    error = function(e) {
+      ctx$close(exception = e)
+      stop(e)
+    }
+  )
+}
+
 #' Open a Dagster Pipes session
 #'
 #' Reads bootstrap parameters from environment variables, initializes the

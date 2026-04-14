@@ -12,6 +12,7 @@ Implements the Dagster Pipes protocol, enabling R scripts to communicate with th
 Useful links:
 \itemize{
   \item \url{https://github.com/joekirincic/dagsterpipes}
+  \item \url{https://joekirincic.github.io/dagsterpipes/}
   \item Report bugs at \url{https://github.com/joekirincic/dagsterpipes/issues}
 }
 
