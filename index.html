@@ -94,26 +94,25 @@
 <span id="cb2-15"><a href="#cb2-15" tabindex="-1"></a>    assets<span class="op">=</span>[my_r_asset],</span>
 <span id="cb2-16"><a href="#cb2-16" tabindex="-1"></a>    resources<span class="op">=</span>{<span class="st">"pipes_subprocess_client"</span>: dg.PipesSubprocessClient()},</span>
 <span id="cb2-17"><a href="#cb2-17" tabindex="-1"></a>)</span></code></pre></div>
-<p>On the R side (<code>my_script.R</code>), open a pipes session, read extras, do the work, and report back:</p>
+<p>On the R side (<code>my_script.R</code>), use <code><a href="reference/with_dagster_pipes.html">with_dagster_pipes()</a></code> to open a session, do the work, and report back. The session is closed automatically — including forwarding any error to Dagster:</p>
 <div class="sourceCode" id="cb3"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://github.com/joekirincic/dagsterpipes" class="external-link">dagsterpipes</a></span><span class="op">)</span></span>
 <span></span>
-<span><span class="va">ctx</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/open_dagster_pipes.html">open_dagster_pipes</a></span><span class="op">(</span><span class="op">)</span></span>
+<span><span class="fu"><a href="reference/with_dagster_pipes.html">with_dagster_pipes</a></span><span class="op">(</span><span class="kw">function</span><span class="op">(</span><span class="va">ctx</span><span class="op">)</span> <span class="op">{</span></span>
+<span>  <span class="va">threshold</span> <span class="op">&lt;-</span> <span class="va">ctx</span><span class="op">$</span><span class="fu">get_extra</span><span class="op">(</span><span class="st">"threshold"</span><span class="op">)</span></span>
+<span>  <span class="va">output_path</span> <span class="op">&lt;-</span> <span class="va">ctx</span><span class="op">$</span><span class="fu">get_extra</span><span class="op">(</span><span class="st">"output_path"</span><span class="op">)</span></span>
 <span></span>
-<span><span class="va">threshold</span> <span class="op">&lt;-</span> <span class="va">ctx</span><span class="op">$</span><span class="fu">get_extra</span><span class="op">(</span><span class="st">"threshold"</span><span class="op">)</span></span>
-<span><span class="va">output_path</span> <span class="op">&lt;-</span> <span class="va">ctx</span><span class="op">$</span><span class="fu">get_extra</span><span class="op">(</span><span class="st">"output_path"</span><span class="op">)</span></span>
+<span>  <span class="co"># ... do work ...</span></span>
 <span></span>
-<span><span class="co"># ... do work ...</span></span>
-<span></span>
-<span><span class="va">ctx</span><span class="op">$</span><span class="fu">report_asset_materialization</span><span class="op">(</span></span>
-<span>  metadata <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span></span>
-<span>    row_count   <span class="op">=</span> <span class="fu"><a href="reference/pipes_metadata_value.html">pipes_metadata_value</a></span><span class="op">(</span><span class="fl">1000L</span>, <span class="st">"int"</span><span class="op">)</span>,</span>
-<span>    output_path <span class="op">=</span> <span class="fu"><a href="reference/pipes_metadata_value.html">pipes_metadata_value</a></span><span class="op">(</span><span class="va">output_path</span>, <span class="st">"path"</span><span class="op">)</span></span>
+<span>  <span class="va">ctx</span><span class="op">$</span><span class="fu">report_asset_materialization</span><span class="op">(</span></span>
+<span>    metadata <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span></span>
+<span>      row_count   <span class="op">=</span> <span class="fu"><a href="reference/pipes_metadata_value.html">pipes_metadata_value</a></span><span class="op">(</span><span class="fl">1000L</span>, <span class="st">"int"</span><span class="op">)</span>,</span>
+<span>      output_path <span class="op">=</span> <span class="fu"><a href="reference/pipes_metadata_value.html">pipes_metadata_value</a></span><span class="op">(</span><span class="va">output_path</span>, <span class="st">"path"</span><span class="op">)</span></span>
+<span>    <span class="op">)</span></span>
 <span>  <span class="op">)</span></span>
-<span><span class="op">)</span></span>
 <span></span>
-<span><span class="va">ctx</span><span class="op">$</span><span class="fu">log</span><span class="op">(</span><span class="st">"Processing complete"</span>, level <span class="op">=</span> <span class="st">"INFO"</span><span class="op">)</span></span>
-<span><span class="va">ctx</span><span class="op">$</span><span class="fu">close</span><span class="op">(</span><span class="op">)</span></span></code></pre></div>
+<span>  <span class="va">ctx</span><span class="op">$</span><span class="fu">log</span><span class="op">(</span><span class="st">"Processing complete"</span>, level <span class="op">=</span> <span class="st">"INFO"</span><span class="op">)</span></span>
+<span><span class="op">}</span><span class="op">)</span></span></code></pre></div>
 </div>
 <div class="section level2">
 <h2 id="key-features">Key features<a class="anchor" aria-label="anchor" href="#key-features"></a>
@@ -121,14 +120,15 @@
 <ul>
 <li>Minimal dependencies: only <code>R6</code> and <code>jsonlite</code>.</li>
 <li>File-based message transport (newline-delimited JSON), matching Dagster’s default <code>PipesSubprocessClient</code> / <code>PipesTempFileMessageReader</code>.</li>
-<li>Graceful degradation: when the Dagster env vars are absent, <code><a href="reference/open_dagster_pipes.html">open_dagster_pipes()</a></code> returns a no-op <code>NullPipesContext</code> so scripts can be run and tested outside Dagster.</li>
+<li>Automatic session lifecycle: <code><a href="reference/with_dagster_pipes.html">with_dagster_pipes()</a></code> opens, closes, and forwards errors to Dagster for you — no manual <code>tryCatch</code> needed.</li>
+<li>Graceful degradation: when the Dagster env vars are absent, a no-op <code>NullPipesContext</code> is returned so scripts can be run and tested outside Dagster.</li>
 <li>R6-based API with active bindings for context fields (<code>asset_key</code>, <code>run_id</code>, <code>partition_key</code>, <code>extras</code>, etc.).</li>
 </ul>
 </div>
 <div class="section level2">
 <h2 id="running-standalone">Running standalone<a class="anchor" aria-label="anchor" href="#running-standalone"></a>
 </h2>
-<p>When <code>DAGSTER_PIPES_CONTEXT</code> and <code>DAGSTER_PIPES_MESSAGES</code> are not set, <code><a href="reference/open_dagster_pipes.html">open_dagster_pipes()</a></code> returns a <code>NullPipesContext</code>. It logs to the R console via <code><a href="https://rdrr.io/r/base/message.html" class="external-link">message()</a></code> and silently ignores materialization, check, and custom-message reports. This means the same script can be run interactively or from a plain <code>Rscript</code> invocation without any Dagster machinery.</p>
+<p>When <code>DAGSTER_PIPES_CONTEXT</code> and <code>DAGSTER_PIPES_MESSAGES</code> are not set, <code><a href="reference/with_dagster_pipes.html">with_dagster_pipes()</a></code> (and <code><a href="reference/open_dagster_pipes.html">open_dagster_pipes()</a></code>) returns a <code>NullPipesContext</code>. It logs to the R console via <code><a href="https://rdrr.io/r/base/message.html" class="external-link">message()</a></code> and silently ignores materialization, check, and custom-message reports. This means the same script can be run interactively or from a plain <code>Rscript</code> invocation without any Dagster machinery.</p>
 </div>
 <div class="section level2">
 <h2 id="supported-message-types">Supported message types<a class="anchor" aria-label="anchor" href="#supported-message-types"></a>

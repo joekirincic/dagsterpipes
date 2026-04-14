@@ -52,28 +52,29 @@ defs = dg.Definitions(
 )
 ```
 
-On the R side (`my_script.R`), open a pipes session, read extras, do the
-work, and report back:
+On the R side (`my_script.R`), use
+[`with_dagster_pipes()`](https://joekirincic.github.io/dagsterpipes/reference/with_dagster_pipes.md)
+to open a session, do the work, and report back. The session is closed
+automatically — including forwarding any error to Dagster:
 
 ``` r
 library(dagsterpipes)
 
-ctx <- open_dagster_pipes()
+with_dagster_pipes(function(ctx) {
+  threshold <- ctx$get_extra("threshold")
+  output_path <- ctx$get_extra("output_path")
 
-threshold <- ctx$get_extra("threshold")
-output_path <- ctx$get_extra("output_path")
+  # ... do work ...
 
-# ... do work ...
-
-ctx$report_asset_materialization(
-  metadata = list(
-    row_count   = pipes_metadata_value(1000L, "int"),
-    output_path = pipes_metadata_value(output_path, "path")
+  ctx$report_asset_materialization(
+    metadata = list(
+      row_count   = pipes_metadata_value(1000L, "int"),
+      output_path = pipes_metadata_value(output_path, "path")
+    )
   )
-)
 
-ctx$log("Processing complete", level = "INFO")
-ctx$close()
+  ctx$log("Processing complete", level = "INFO")
+})
 ```
 
 ## Key features
@@ -82,9 +83,12 @@ ctx$close()
 - File-based message transport (newline-delimited JSON), matching
   Dagster’s default `PipesSubprocessClient` /
   `PipesTempFileMessageReader`.
-- Graceful degradation: when the Dagster env vars are absent,
-  [`open_dagster_pipes()`](https://joekirincic.github.io/dagsterpipes/reference/open_dagster_pipes.md)
-  returns a no-op `NullPipesContext` so scripts can be run and tested
+- Automatic session lifecycle:
+  [`with_dagster_pipes()`](https://joekirincic.github.io/dagsterpipes/reference/with_dagster_pipes.md)
+  opens, closes, and forwards errors to Dagster for you — no manual
+  `tryCatch` needed.
+- Graceful degradation: when the Dagster env vars are absent, a no-op
+  `NullPipesContext` is returned so scripts can be run and tested
   outside Dagster.
 - R6-based API with active bindings for context fields (`asset_key`,
   `run_id`, `partition_key`, `extras`, etc.).
@@ -92,7 +96,9 @@ ctx$close()
 ## Running standalone
 
 When `DAGSTER_PIPES_CONTEXT` and `DAGSTER_PIPES_MESSAGES` are not set,
-[`open_dagster_pipes()`](https://joekirincic.github.io/dagsterpipes/reference/open_dagster_pipes.md)
+[`with_dagster_pipes()`](https://joekirincic.github.io/dagsterpipes/reference/with_dagster_pipes.md)
+(and
+[`open_dagster_pipes()`](https://joekirincic.github.io/dagsterpipes/reference/open_dagster_pipes.md))
 returns a `NullPipesContext`. It logs to the R console via
 [`message()`](https://rdrr.io/r/base/message.html) and silently ignores
 materialization, check, and custom-message reports. This means the same
